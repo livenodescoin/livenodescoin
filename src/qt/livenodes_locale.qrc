@@ -1,0 +1,29 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource prefix="/translations">
+        <file alias="bg">locale/livenodes_bg.qm</file>
+        <file alias="ca">locale/livenodes_ca.qm</file>
+        <file alias="cs">locale/livenodes_cs.qm</file>
+        <file alias="da">locale/livenodes_da.qm</file>
+        <file alias="de">locale/livenodes_de.qm</file>
+        <file alias="en">locale/livenodes_en.qm</file>
+        <file alias="en_US">locale/livenodes_en_US.qm</file>
+        <file alias="es">locale/livenodes_es.qm</file>
+        <file alias="fi">locale/livenodes_fi.qm</file>
+        <file alias="fr_FR">locale/livenodes_fr_FR.qm</file>
+        <file alias="it">locale/livenodes_it.qm</file>
+        <file alias="ja">locale/livenodes_ja.qm</file>
+        <file alias="ko_KR">locale/livenodes_ko_KR.qm</file>
+        <file alias="nl">locale/livenodes_nl.qm</file>
+        <file alias="pl">locale/livenodes_pl.qm</file>
+        <file alias="pt">locale/livenodes_pt.qm</file>
+        <file alias="pt_BR">locale/livenodes_pt_BR.qm</file>
+        <file alias="ro_RO">locale/livenodes_ro_RO.qm</file>
+        <file alias="ru">locale/livenodes_ru.qm</file>
+        <file alias="sk">locale/livenodes_sk.qm</file>
+        <file alias="sv">locale/livenodes_sv.qm</file>
+        <file alias="tr">locale/livenodes_tr.qm</file>
+        <file alias="uk">locale/livenodes_uk.qm</file>
+        <file alias="zh_CN">locale/livenodes_zh_CN.qm</file>
+        <file alias="zh_TW">locale/livenodes_zh_TW.qm</file>
+    </qresource>
+</RCC>

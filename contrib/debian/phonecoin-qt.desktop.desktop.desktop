@@ -1,0 +1,11 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=LivenodesCoin
+Comment=LivenodesCoin P2P Cryptocurrency
+Exec=livenodes-qt %u
+Terminal=false
+Type=Application
+Icon=livenodes128
+MimeType=x-scheme-handler/livenodes;
+Categories=Office;Finance;
+Name[ru]=livenodes-qt.desktop.desktop
