@@ -3218,7 +3218,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     if (!IsInitialBlockDownload() && masternodeSync.IsSynced()) {
 
-		int forkHeight = 45000;
+		int forkHeight = 36500;
 		int blockHeight = chainActive.Height();
 
 		if (block.IsProofOfStake() && (blockHeight > forkHeight)) {
