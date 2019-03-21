@@ -3215,6 +3215,46 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
                 return state.DoS(100, error("CheckBlock() : more than one coinstake"));
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    if (!IsInitialBlockDownload() && masternodeSync.IsSynced()) {
+
+		int forkHeight = 36500;
+		int blockHeight = chainActive.Height();
+
+		if (block.IsProofOfStake() && (blockHeight > forkHeight)) {
+
+				CAmount nCoinbaseRewardTotal = GetBlockValue(blockHeight);
+
+				// find out rewards per tier
+				CAmount nTierRewards[4];
+				for (int b = 1; b < 4; b++)
+					nTierRewards[b] = GetMasternodePayment(blockHeight, b, nCoinbaseRewardTotal);
+
+				// test the tx
+				int inwinners = 0;
+				for (int c = 2; c < block.vtx[1].vout.size(); c++) {
+
+					CTxDestination address;
+					ExtractDestination(block.vtx[1].vout[c].scriptPubKey, address);
+					CBitcoinAddress addressMN(address);
+
+					LogPrintf("* vtx[1].vout[%d] pays to %s - address: %s ", c, block.vtx[1].vout[c].scriptPubKey.ToString().c_str(), addressMN.ToString());
+					LogPrintf("- %llu (%d)\n", block.vtx[1].vout[c].nValue, (block.vtx[1].vout[c].nValue == nTierRewards[c-1]));
+
+					// see if the address is in the winners list
+					if (mnodeman.Find(block.vtx[1].vout[c].scriptPubKey))
+						inwinners++;
+				}
+
+				if(inwinners == 3) {
+					LogPrintf("All addresses were found to be in the masternode winners list\n");
+				} else {
+					LogPrintf("At least one address has been injected as a block winner\n");
+					return state.DoS(100, error("CheckBlock() : at least one address isn't in winners list"), REJECT_INVALID, "unknown-mn-winner");
+				}
+		}
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // ----------- swiftTX transaction scanning -----------
     if (IsSporkActive(SPORK_2_SWIFTTX_BLOCK_FILTERING)) {
