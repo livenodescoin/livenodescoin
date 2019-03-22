@@ -46,6 +46,7 @@ bool fPayAtLeastCustomFee = true;
  * Override with -mintxfee
  */
 CFeeRate CWallet::minTxFee = CFeeRate(10000);
+int64_t nStartupTime = GetTime();
 
 /** @defgroup mapWallet
  *
@@ -648,7 +649,9 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet)
 
     if (fFromLoadWallet) {
         mapWallet[hash] = wtxIn;
-        mapWallet[hash].BindWallet(this);
+        CWalletTx& wtx = mapWallet[hash];
+        wtx.BindWallet(this);
+        wtxOrdered.insert(make_pair(wtx.nOrderPos, TxPair(&wtx, (CAccountingEntry*)0)));
         AddToSpends(hash);
     } else {
         LOCK(cs_wallet);
@@ -658,47 +661,11 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet)
         wtx.BindWallet(this);
         bool fInsertedNew = ret.second;
         if (fInsertedNew) {
-            wtx.nTimeReceived = GetAdjustedTime();
+            if (!wtx.nTimeReceived)
+                wtx.nTimeReceived = GetAdjustedTime();
             wtx.nOrderPos = IncOrderPosNext();
-
-            wtx.nTimeSmart = wtx.nTimeReceived;
-            if (wtxIn.hashBlock != 0) {
-                if (mapBlockIndex.count(wtxIn.hashBlock)) {
-                    int64_t latestNow = wtx.nTimeReceived;
-                    int64_t latestEntry = 0;
-                    {
-                        // Tolerate times up to the last timestamp in the wallet not more than 5 minutes into the future
-                        int64_t latestTolerated = latestNow + 300;
-                        std::list<CAccountingEntry> acentries;
-                        TxItems txOrdered = OrderedTxItems(acentries);
-                        for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
-                            CWalletTx* const pwtx = (*it).second.first;
-                            if (pwtx == &wtx)
-                                continue;
-                            CAccountingEntry* const pacentry = (*it).second.second;
-                            int64_t nSmartTime;
-                            if (pwtx) {
-                                nSmartTime = pwtx->nTimeSmart;
-                                if (!nSmartTime)
-                                    nSmartTime = pwtx->nTimeReceived;
-                            } else
-                                nSmartTime = pacentry->nTime;
-                            if (nSmartTime <= latestTolerated) {
-                                latestEntry = nSmartTime;
-                                if (nSmartTime > latestNow)
-                                    latestNow = nSmartTime;
-                                break;
-                            }
-                        }
-                    }
-
-                    int64_t blocktime = mapBlockIndex[wtxIn.hashBlock]->GetBlockTime();
-                    wtx.nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
-                } else
-                    LogPrintf("AddToWallet() : found %s in block %s not in index\n",
-                        wtxIn.GetHash().ToString(),
-                        wtxIn.hashBlock.ToString());
-            }
+            wtxOrdered.insert(make_pair(wtx.nOrderPos, TxPair(&wtx, (CAccountingEntry*)0)));
+            wtx.nTimeSmart = ComputeTimeSmart(wtx);
             AddToSpends(hash);
         }
 
@@ -1148,7 +1115,7 @@ void CWallet::ReacceptWalletTransactions()
 
         int nDepth = wtx.GetDepthInMainChain();
 
-        if (!wtx.IsCoinBase() && nDepth < 0) {
+        if (!wtx.IsCoinBase() && nDepth < 0 && !wtx.IsCoinStake()) {
             // Try to add to memory pool
             LOCK(mempool.cs);
             wtx.AcceptToMemoryPool(false);
@@ -3255,6 +3222,48 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t>& mapKeyBirth) const
     // Extract block timestamps for those keys
     for (std::map<CKeyID, CBlockIndex*>::const_iterator it = mapKeyFirstBlock.begin(); it != mapKeyFirstBlock.end(); it++)
         mapKeyBirth[it->first] = it->second->GetBlockTime() - 7200; // block times can be 2h off
+}
+
+unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx) const
+{
+    unsigned int nTimeSmart = wtx.nTimeReceived;
+    if (wtx.hashBlock != 0) {
+        if (mapBlockIndex.count(wtx.hashBlock)) {
+            int64_t latestNow = wtx.nTimeReceived;
+            int64_t latestEntry = 0;
+            {
+                // Tolerate times up to the last timestamp in the wallet not more than 5 minutes into the future
+                int64_t latestTolerated = latestNow + 300;
+                TxItems txOrdered = wtxOrdered;
+                for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+                    CWalletTx* const pwtx = (*it).second.first;
+                    if (pwtx == &wtx)
+                        continue;
+                    CAccountingEntry* const pacentry = (*it).second.second;
+                    int64_t nSmartTime;
+                    if (pwtx) {
+                        nSmartTime = pwtx->nTimeSmart;
+                        if (!nSmartTime)
+                            nSmartTime = pwtx->nTimeReceived;
+                    } else
+                        nSmartTime = pacentry->nTime;
+                    if (nSmartTime <= latestTolerated) {
+                        latestEntry = nSmartTime;
+                        if (nSmartTime > latestNow)
+                            latestNow = nSmartTime;
+                        break;
+                    }
+                }
+            }
+
+            int64_t blocktime = mapBlockIndex[wtx.hashBlock]->GetBlockTime();
+            nTimeSmart = std::max(latestEntry, std::min(blocktime, latestNow));
+        } else
+            LogPrintf("AddToWallet() : found %s in block %s not in index\n",
+                wtx.GetHash().ToString(),
+                wtx.hashBlock.ToString());
+    }
+    return nTimeSmart;
 }
 
 bool CWallet::AddDestData(const CTxDestination& dest, const std::string& key, const std::string& value)
