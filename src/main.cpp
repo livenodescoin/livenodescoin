@@ -3216,73 +3216,76 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (!IsInitialBlockDownload() &&
-        masternodeSync.IsSynced()) {
+    if (IsSporkActive(SPORK_4_MASTERNODE_PAYMENT_ENFORCEMENT)) {
 
-	// flush cache periodically
-	if ((GetTime() - mnTierCacheTime) > 10800) {
-		mnTierMap.clear();
-		mnTierCacheTime = GetTime();
-		LogPrintf("* Flushed mnTier cache\n");
-	}
+        if (!IsInitialBlockDownload() && masternodeSync.IsSynced()) {
 
-        int blockHeight = chainActive.Height();
-        int payees = block.vtx[1].vout.size() - 1;
+        	// flush cache periodically
+        	if ((GetTime() - mnTierCacheTime) > 10800) {
+        		mnTierMap.clear();
+        		mnTierCacheTime = GetTime();
+        		LogPrintf("* Flushed mnTier cache\n");
+        	}
 
-        for (int c = 0; c < 3; c++) {
+            int blockHeight = chainActive.Height();
+            int payees = block.vtx[1].vout.size() - 1;
 
-		// extract collat info from mn
-		CMasternode* pmn = mnodeman.Find(block.vtx[1].vout[payees-c].scriptPubKey);
-		if (!pmn) {
-			LogPrintf("* Masternode with this vin not found\n");
-			return state.DoS(100, error("CheckBlock() : no match in masternode list for vin"), REJECT_INVALID, "unknown-mn");
-		}
+            for (int c = 0; c < 3; c++) {
 
-		// if we know this mn, we know the tier amount
-		CAmount nCollateralAmount = 0;
-		uint256 nCollateralHash = pmn->vin.prevout.hash;
-		int nCollateralN = pmn->vin.prevout.n;
+        		// extract collat info from mn
+        		CMasternode* pmn = mnodeman.Find(block.vtx[1].vout[payees-c].scriptPubKey);
+        		if (!pmn) {
+        			LogPrintf("* Masternode with this vin not found\n");
+        			return state.DoS(100, error("CheckBlock() : no match in masternode list for vin"), REJECT_INVALID, "unknown-mn");
+        		}
 
-		if (mnTierMap.count(nCollateralHash) > 0) {
-		   for (auto it = mnTierMap.find(nCollateralHash); it != mnTierMap.end(); it++) {
-			if (it->first == nCollateralHash)
-				nCollateralAmount = it->second;
-		   }
-		   LogPrintf("* Found cached entry in local map\n");
-		}
+        		// if we know this mn, we know the tier amount
+        		CAmount nCollateralAmount = 0;
+        		uint256 nCollateralHash = pmn->vin.prevout.hash;
+        		int nCollateralN = pmn->vin.prevout.n;
 
-		// if it wasnt in our map/cache
-		if (nCollateralAmount == 0) {
+        		if (mnTierMap.count(nCollateralHash) > 0) {
+        		   for (auto it = mnTierMap.find(nCollateralHash); it != mnTierMap.end(); it++) {
+        			if (it->first == nCollateralHash)
+        				nCollateralAmount = it->second;
+        		   }
+        		   LogPrintf("* Found cached entry in local map\n");
+        		}
 
-			LogPrintf("* Retrieving collateral transaction from disk\n");
+        		// if it wasnt in our map/cache
+        		if (nCollateralAmount == 0) {
 
-			uint256 blockHash;
-			CTransaction nCollateralTx;
-			if (!GetTransaction(nCollateralHash, nCollateralTx, blockHash, true))
-			    return state.DoS(100, error("CheckBlock() : could not find collateral transaction for masternode"), REJECT_INVALID, "unknown-mn");
-			CAmount potential = nCollateralTx.vout[nCollateralN].nValue;
-			if (potential == 1000 * COIN || potential == 2000 * COIN || potential == 5000 * COIN) {
-			    nCollateralAmount = potential;
-			    mnTierMap.insert(std::pair<uint256, CAmount>(nCollateralHash, nCollateralAmount));
-			    LogPrintf("* Added (%s,%llu) to mnTierMap\n", nCollateralHash.ToString().c_str(), nCollateralAmount);
-			}
-		}
+        			LogPrintf("* Retrieving collateral transaction from disk\n");
 
-		// match mn/tier to a known reward
-		int nTier = 0;
-		if (nCollateralAmount == 1000 * COIN) nTier = 1;
-		if (nCollateralAmount == 2000 * COIN) nTier = 2;
-		if (nCollateralAmount == 5000 * COIN) nTier = 3;
+        			uint256 blockHash;
+        			CTransaction nCollateralTx;
+        			if (!GetTransaction(nCollateralHash, nCollateralTx, blockHash, true))
+        			    return state.DoS(100, error("CheckBlock() : could not find collateral transaction for masternode"), REJECT_INVALID, "unknown-mn");
+        			CAmount potential = nCollateralTx.vout[nCollateralN].nValue;
+        			if (potential == 1000 * COIN || potential == 2000 * COIN || potential == 5000 * COIN) {
+        			    nCollateralAmount = potential;
+        			    mnTierMap.insert(std::pair<uint256, CAmount>(nCollateralHash, nCollateralAmount));
+        			    LogPrintf("* Added (%s,%llu) to mnTierMap\n", nCollateralHash.ToString().c_str(), nCollateralAmount);
+        			}
+        		}
 
-		CAmount nBlockValue = GetBlockValue(blockHeight);
-		CAmount nTierReward = GetMasternodePayment(blockHeight, (3-c), nBlockValue);
-		if (nTierReward == block.vtx[1].vout[payees-c].nValue && (nTier == 3 - c)) {
-			LogPrintf("* Tier %d matched to correct Masternode\n", (3-c));
-		} else {
-			LogPrintf("* Tier %d matched to invalid Masternode\n", (3-c));
-			return state.DoS(100, error("CheckBlock() : masternode doesnt belong to this payment tier"), REJECT_INVALID, "fraudulent-mn");
-		}
-	}
+        		// match mn/tier to a known reward
+        		int nTier = 0;
+        		if (nCollateralAmount == 1000 * COIN) nTier = 1;
+        		if (nCollateralAmount == 2000 * COIN) nTier = 2;
+        		if (nCollateralAmount == 5000 * COIN) nTier = 3;
+
+        		CAmount nBlockValue = GetBlockValue(blockHeight);
+        		CAmount nTierReward = GetMasternodePayment(blockHeight, (3-c), nBlockValue);
+        		if (nTierReward == block.vtx[1].vout[payees-c].nValue && (nTier == 3 - c)) {
+        			LogPrintf("* Tier %d matched to correct Masternode\n", (3-c));
+        		} else {
+        			LogPrintf("* Tier %d matched to invalid Masternode\n", (3-c));
+        			return state.DoS(100, error("CheckBlock() : masternode doesnt belong to this payment tier"), REJECT_INVALID, "fraudulent-mn");
+        		}
+        	}
+        }
+        
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
