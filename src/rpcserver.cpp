@@ -503,8 +503,8 @@ private:
 void ServiceConnection(AcceptedConnection* conn);
 
 //! Forward declaration required for RPCListen
-template <typename Protocol, typename SocketAcceptorService>
-static void RPCAcceptHandler(boost::shared_ptr<basic_socket_acceptor<Protocol, SocketAcceptorService> > acceptor,
+template <typename Protocol>
+static void RPCAcceptHandler(boost::shared_ptr< basic_socket_acceptor<Protocol> > acceptor,
     ssl::context& context,
     bool fUseSSL,
     boost::shared_ptr<AcceptedConnection> conn,
@@ -513,8 +513,8 @@ static void RPCAcceptHandler(boost::shared_ptr<basic_socket_acceptor<Protocol, S
 /**
  * Sets up I/O resources to accept and handle a new connection.
  */
-template <typename Protocol, typename SocketAcceptorService>
-static void RPCListen(boost::shared_ptr<basic_socket_acceptor<Protocol, SocketAcceptorService> > acceptor,
+template <typename Protocol>
+static void RPCListen(boost::shared_ptr< basic_socket_acceptor<Protocol> > acceptor,
     ssl::context& context,
     const bool fUseSSL)
 {
@@ -524,7 +524,7 @@ static void RPCListen(boost::shared_ptr<basic_socket_acceptor<Protocol, SocketAc
     acceptor->async_accept(
         conn->sslStream.lowest_layer(),
         conn->peer,
-        boost::bind(&RPCAcceptHandler<Protocol, SocketAcceptorService>,
+        boost::bind(&RPCAcceptHandler<Protocol>,
             acceptor,
             boost::ref(context),
             fUseSSL,
@@ -536,8 +536,8 @@ static void RPCListen(boost::shared_ptr<basic_socket_acceptor<Protocol, SocketAc
 /**
  * Accept and handle incoming connection.
  */
-template <typename Protocol, typename SocketAcceptorService>
-static void RPCAcceptHandler(boost::shared_ptr<basic_socket_acceptor<Protocol, SocketAcceptorService> > acceptor,
+template <typename Protocol>
+static void RPCAcceptHandler(boost::shared_ptr< basic_socket_acceptor<Protocol> > acceptor,
     ssl::context& context,
     const bool fUseSSL,
     boost::shared_ptr<AcceptedConnection> conn,
@@ -625,30 +625,7 @@ void StartRPCThreads()
 
     assert(rpc_io_service == NULL);
     rpc_io_service = new asio::io_service();
-    rpc_ssl_context = new ssl::context(*rpc_io_service, ssl::context::sslv23);
-
-    const bool fUseSSL = GetBoolArg("-rpcssl", false);
-
-    if (fUseSSL) {
-        rpc_ssl_context->set_options(ssl::context::no_sslv2 | ssl::context::no_sslv3);
-
-        filesystem::path pathCertFile(GetArg("-rpcsslcertificatechainfile", "server.cert"));
-        if (!pathCertFile.is_complete()) pathCertFile = filesystem::path(GetDataDir()) / pathCertFile;
-        if (filesystem::exists(pathCertFile))
-            rpc_ssl_context->use_certificate_chain_file(pathCertFile.string());
-        else
-            LogPrintf("ThreadRPCServer ERROR: missing server certificate file %s\n", pathCertFile.string());
-
-        filesystem::path pathPKFile(GetArg("-rpcsslprivatekeyfile", "server.pem"));
-        if (!pathPKFile.is_complete()) pathPKFile = filesystem::path(GetDataDir()) / pathPKFile;
-        if (filesystem::exists(pathPKFile))
-            rpc_ssl_context->use_private_key_file(pathPKFile.string(), ssl::context::pem);
-        else
-            LogPrintf("ThreadRPCServer ERROR: missing server private key file %s\n", pathPKFile.string());
-
-        string strCiphers = GetArg("-rpcsslciphers", "TLSv1.2+HIGH:TLSv1+HIGH:!SSLv2:!aNULL:!eNULL:!3DES:@STRENGTH");
-        SSL_CTX_set_cipher_list(rpc_ssl_context->impl(), strCiphers.c_str());
-    }
+    rpc_ssl_context = new ssl::context(ssl::context::sslv23);
 
     std::vector<ip::tcp::endpoint> vEndpoints;
     bool bBindAny = false;
@@ -702,8 +679,6 @@ void StartRPCThreads()
 
             acceptor->bind(endpoint);
             acceptor->listen(socket_base::max_connections);
-
-            RPCListen(acceptor, *rpc_ssl_context, fUseSSL);
 
             rpc_acceptors.push_back(acceptor);
             fListening = true;
