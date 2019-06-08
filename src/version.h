@@ -13,13 +13,13 @@
  * network protocol versioning
  */
 
-static const int PROTOCOL_VERSION = 90005;
+static const int PROTOCOL_VERSION = 90006;
 
 //! initial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
 
 //! disconnect from peers older than this proto version
-static const int MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT = 90003;
+static const int MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT = 90005;
 static const int MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT = 90005;
 
 //! nTime field added to CAddress, starting with this version;
