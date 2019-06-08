@@ -3216,9 +3216,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    if (!IsInitialBlockDownload() &&
-        masternodeSync.IsSynced()) {
-
+    if (masternodeSync.IsMasternodeListSynced())
+    {
 	// flush cache periodically
 	if ((GetTime() - mnTierCacheTime) > 10800) {
 		mnTierMap.clear();
@@ -3229,15 +3228,17 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
         int blockHeight = chainActive.Height();
         int payees = block.vtx[1].vout.size() - 2;
 
-	if (payees >= 3)
+        LogPrintf("Found %d payees in block\n", payees);
+
+	if (payees > 0)
         {
-                for (int c = 2; c < 5; c++) {
+                for (int c = 2; c < (2 + payees); c++) {
 
 			// extract collat info from mn
 			CMasternode* pmn = mnodeman.Find(block.vtx[1].vout[c].scriptPubKey);
 			if (!pmn) {
 				LogPrintf("* Masternode with this vin not found\n");
-				return state.DoS(100, error("CheckBlock() : no match in masternode list for vin"), REJECT_INVALID, "unknown-mn");
+				return false;
 			}
 
 			// if we know this mn, we know the tier amount
@@ -3282,7 +3283,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 				LogPrintf("* Tier %d matched to correct Masternode\n", (c-1));
 			} else {
 				LogPrintf("* Tier %d matched to invalid Masternode\n", (c-1));
-				return state.DoS(100, error("CheckBlock() : masternode doesnt belong to this payment tier"), REJECT_INVALID, "fraudulent-mn");
+				return false;
 			}
 		}
         }
