@@ -1698,8 +1698,7 @@ double ConvertBitsToDouble(unsigned int nBits)
 
 CAmount GetBlockValue(int nHeight)
 {
-  // anti instamine
-      int64_t nSubsidy = 0;
+    int64_t nSubsidy = 0;
 
     if ( nHeight == 0 ) {    // premine
       nSubsidy = 330000 * COIN;
@@ -1720,9 +1719,11 @@ CAmount GetBlockValue(int nHeight)
     } else if (nHeight > 120000 && nHeight <= 150000) {
       nSubsidy = 3 * COIN;
     } else if (nHeight > 150000 && nHeight <= 200000) {
+      nSubsidy = 4 * COIN;
+    } else if (nHeight > 200000 && nHeight <= 300000) {
+      nSubsidy = 3 * COIN;
+    } else if (nHeight > 300000) {
       nSubsidy = 2 * COIN;
-    } else {
-      nSubsidy = 1 * COIN;
     }
 
     // Check if we reached the coin max supply.
