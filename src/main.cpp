@@ -1746,12 +1746,16 @@ int64_t GetMasternodePayment(int nHeight, unsigned mnlevel, int64_t blockValue)
     switch(mnlevel)
     {
         case 1:
+            if (nHeight >= 150000)
+               return blockValue * 0.1;
             return blockValue * 0.15;
 
         case 2:
             return blockValue * 0.25;
 
         case 3:
+            if (nHeight >= 150000)
+               return blockValue * 0.6;
             return blockValue * 0.5;
     }
 
