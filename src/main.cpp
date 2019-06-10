@@ -3232,42 +3232,37 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
         int blockHeight = chainActive.Height();
         int payees = block.vtx[1].vout.size() - 2;
-
         LogPrintf("Found %d payees in block\n", payees);
 
 	if (payees > 0)
         {
-                for (int c = 2; c < (2 + payees); c++) {
-
+                for (int c = 2; c < (2 + payees); c++)
+                {
 			// extract collat info from mn
 			CMasternode* pmn = mnodeman.Find(block.vtx[1].vout[c].scriptPubKey);
 			if (!pmn) {
 				LogPrintf("* Masternode with this vin not found\n");
-				return false;
+				return state.DoS(0, error("CheckBlock() : Found invalid masternode"), REJECT_INVALID, "bad-cb-payee");
 			}
 
 			// if we know this mn, we know the tier amount
 			CAmount nCollateralAmount = 0;
 			uint256 nCollateralHash = pmn->vin.prevout.hash;
 			int nCollateralN = pmn->vin.prevout.n;
-
 			if (mnTierMap.count(nCollateralHash) > 0) {
-			   for (auto it = mnTierMap.find(nCollateralHash); it != mnTierMap.end(); it++) {
+			   for (auto it = mnTierMap.find(nCollateralHash); it != mnTierMap.end(); it++)
 				if (it->first == nCollateralHash)
 					nCollateralAmount = it->second;
-			   }
 			   LogPrintf("* Found cached entry in local map\n");
 			}
 
 			// if it wasnt in our map/cache
 			if (nCollateralAmount == 0) {
-
 				LogPrintf("* Retrieving collateral transaction from disk\n");
-
 				uint256 blockHash;
 				CTransaction nCollateralTx;
 				if (!GetTransaction(nCollateralHash, nCollateralTx, blockHash, true))
-				    return state.DoS(100, error("CheckBlock() : could not find collateral transaction for masternode"), REJECT_INVALID, "unknown-mn");
+				    return state.DoS(0, error("CheckBlock() : could not find collateral transaction for masternode"), REJECT_INVALID, "unknown-mn");
 				CAmount potential = nCollateralTx.vout[nCollateralN].nValue;
 				if (potential == 1000 * COIN || potential == 2000 * COIN || potential == 5000 * COIN) {
 				    nCollateralAmount = potential;
@@ -3281,14 +3276,13 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 			if (nCollateralAmount == 1000 * COIN) nTier = 1;
 			if (nCollateralAmount == 2000 * COIN) nTier = 2;
 			if (nCollateralAmount == 5000 * COIN) nTier = 3;
-
 			CAmount nBlockValue = GetBlockValue(blockHeight);
 			CAmount nTierReward = GetMasternodePayment(blockHeight, (c-1), nBlockValue);
 			if (nTierReward == block.vtx[1].vout[c].nValue && (nTier == c - 1)) {
 				LogPrintf("* Tier %d matched to correct Masternode\n", (c-1));
 			} else {
 				LogPrintf("* Tier %d matched to invalid Masternode\n", (c-1));
-				return false;
+				return state.DoS(0, error("CheckBlock() : Found invalid masternode payment"), REJECT_INVALID, "bad-cb-payee");
 			}
 		}
         }
