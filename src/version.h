@@ -19,7 +19,7 @@ static const int PROTOCOL_VERSION = 90006;
 static const int INIT_PROTO_VERSION = 209;
 
 //! disconnect from peers older than this proto version
-static const int MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT = 90005;
+static const int MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT = 90006;
 static const int MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT = 90006;
 
 //! nTime field added to CAddress, starting with this version;
