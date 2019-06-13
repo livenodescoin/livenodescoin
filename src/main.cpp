@@ -71,6 +71,7 @@ bool fCheckBlockIndex = false;
 bool fVerifyingBlocks = false;
 unsigned int nCoinCacheSize = 5000;
 bool fAlerts = DEFAULT_ALERTS;
+int64_t nHitIndex = 0;
 
 unsigned int nStakeMinAge = 4 * 60 * 60;
 int64_t nReserveBalance = 0;
@@ -3788,10 +3789,11 @@ bool ProcessNewBlock(CValidationState& state, CNode* pfrom, CBlock* pblock, CDis
         if (pindex && pfrom) {
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
-        // CheckBlockIndex();
+        CheckBlockIndex();
         if (!ret){
-            // Check spamming
-            if(pfrom && GetBoolArg("-blockspamfilter", DEFAULT_BLOCK_SPAM_FILTER)) {
+            ++nHitIndex;
+            LogPrintf("hitthelimiter %llu\n", nHitIndex);
+            if(pindex && pfrom && GetBoolArg("-blockspamfilter", DEFAULT_BLOCK_SPAM_FILTER)) {
                 CNodeState *nodestate = State(pfrom->GetId());
                 nodestate->nodeBlocks.onBlockReceived(pindex->nHeight);
                 bool nodeStatus = true;
