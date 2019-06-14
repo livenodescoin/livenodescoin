@@ -11,12 +11,14 @@
 #include "db.h"
 #include "kernel.h"
 #include "script/interpreter.h"
+#include "spork.h"
 #include "timedata.h"
 #include "util.h"
 
 using namespace std;
 
-bool fTestNet = false; //Params().NetworkID() == CBaseChainParams::TESTNET;
+bool fTestNet = false;
+const int nStakePatch = 155500;
 
 // Modifier interval: time to elapse before new modifier is computed
 // Set to 3-hour for production network and 20-minute for test network
@@ -300,8 +302,29 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlock blockFrom, const CTra
     if (nTimeTx < nTimeBlockFrom) // Transaction timestamp violation
         return error("CheckStakeKernelHash() : nTime violation");
 
-    // if (nTimeBlockFrom + nStakeMinAge > nTimeTx) // Min age requirement
-    //     return error("CheckStakeKernelHash() : min age violation - nTimeBlockFrom=%d nStakeMinAge=%d nTimeTx=%d", nTimeBlockFrom, nStakeMinAge, nTimeTx);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // activated with SPORK_9_POSV3_VULNERABILITYPATCH
+
+    const CBlockIndex* pindexFrom = mapBlockIndex[blockFrom.GetHash()];
+    int nCurrentHeight = pindexFrom->nHeight;
+
+    if(nCurrentHeight > nStakePatch &&
+       IsSporkActive(SPORK_9_POSV3_VULNERABILITYPATCH))
+    {
+       // prevent using nHashDrift as more noncespace
+       if (nHashDrift > 45)
+           return error("CheckStakeKernelHash() : nHashDrift outside of protocol-dictated limits (nHashDrift=%d)", nHashDrift);
+
+       // stake input mustnt be dust (extension of above)
+       if (nValueIn < COIN)
+          return error("CheckStakeKernelHash() : nValueIn is less than COIN (nValueIn=%llu)", nValueIn);
+
+       // standard check that was previously commented
+       if (nTimeBlockFrom + nStakeMinAge > nTimeTx) // Min age requirement
+           return error("CheckStakeKernelHash() : min age violation - nTimeBlockFrom=%d nStakeMinAge=%d nTimeTx=%d", nTimeBlockFrom, nStakeMinAge, nTimeTx);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     //grab difficulty
     uint256 bnTargetPerCoinDay;
@@ -325,6 +348,8 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlock blockFrom, const CTra
         hashProofOfStake = stakeHash(nTimeTx, ss, prevout.n, prevout.hash, nTimeBlockFrom);
         return stakeTargetHit(hashProofOfStake, nValueIn, bnTargetPerCoinDay);
     }
+
+    LogPrintf("hashProofOfStake %s\n", hashProofOfStake.ToString().c_str());
 
     bool fSuccess = false;
     unsigned int nTryTime = 0;

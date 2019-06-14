@@ -3472,6 +3472,20 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     if(is_not_valid)
         return state.DoS(100, error("%s : block height mismatch in coinbase", __func__), REJECT_INVALID, "bad-cb-height");
 
+    // Test if stake matches target given
+    uint256 hashProofOfStake = uint256();
+    if (block.IsProofOfStake())
+    {
+        uint256 hash = block.GetHash();
+	bool fValidStake = CheckProofOfStake(block, hashProofOfStake);
+	LogPrintf("hashProofOfStake %s\n", hashProofOfStake.ToString().c_str());
+
+        if(nHeight > nStakePatch && IsSporkActive(SPORK_9_POSV3_VULNERABILITYPATCH)) {
+           if(!fValidStake || hashProofOfStake == uint256())
+              return state.DoS(10, error("CheckBlock(): check proof-of-stake failed for block %s\n", hash.ToString().c_str()));
+        }
+    }
+
     return true;
 }
 
@@ -3789,7 +3803,7 @@ bool ProcessNewBlock(CValidationState& state, CNode* pfrom, CBlock* pblock, CDis
         if (pindex && pfrom) {
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
-        CheckBlockIndex();
+        // CheckBlockIndex();
         if (!ret){
             ++nHitIndex;
             LogPrintf("hitthelimiter %llu\n", nHitIndex);
@@ -5351,7 +5365,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             pfrom->PushMessage("getheaders", chainActive.GetLocator(pindexLast), uint256(0));
         }
 
-        CheckBlockIndex();
+        // CheckBlockIndex();
     }
 
     else if (strCommand == "block" && !fImporting && !fReindex) // Ignore blocks received while importing
@@ -5629,8 +5643,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
 int ActiveProtocol()
 {
-    if (IsSporkActive(SPORK_8_NEW_PROTOCOL_ENFORCEMENT)) return MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT;
-
+    if (IsSporkActive(SPORK_9_POSV3_VULNERABILITYPATCH)) {
+       LogPrintf("* PoSV3 vulnerability patch activated\n");
+       return MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT;
+    }
     return MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT;
 }
 
