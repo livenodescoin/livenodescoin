@@ -5644,7 +5644,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 int ActiveProtocol()
 {
     if (IsSporkActive(SPORK_9_POSV3_VULNERABILITYPATCH)) {
-       LogPrintf("* PoSV3 vulnerability patch activated\n");
        return MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT;
     }
     return MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT;
